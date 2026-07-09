@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link rel="stylesheet" href="style.css">
+
+  <title>DND Shi</title>
+</head>
+
+<body>
+  <div id="connectionStatus">Connecting...</div>
+
+  <main class="Contained">
+
+    <!-- LEFT SIDE: players will be created by app.js -->
+    <section class="player-list" id="playerList"></section>
+
+    <!-- MIDDLE SIDE: map/image -->
+    <section class="middle">
+      <img
+        src="20260327002745.png"
+        alt="Genshin"
+        class="huh"
+      >
+    </section>
+
+    <!-- RIGHT SIDE: DM/player controls -->
+    <section class="right">
+
+      <!-- DM card will be created by app.js -->
+      <div id="dmPlayer"></div>
+
+      <!-- DM-only controls -->
+      <div id="dmControls">
+        <button
+          class="initiative-btn"
+          id="initiativeStartButton"
+          type="button"
+        >
+          Start Initiative
+        </button>
+
+        <button
+          class="initiative-btn"
+          id="initiativeEndButton"
+          type="button"
+        >
+          End Initiative
+        </button>
+      </div>
+
+      <!-- Chat / server messages -->
+      <div class="chat-box">
+        <div id="chatMessages"></div>
+
+        <form id="chatForm">
+          <input
+            id="chatInput"
+            type="text"
+            placeholder="Type message"
+          >
+
+          <button type="submit">
+            Send
+          </button>
+        </form>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- USER POPUP -->
+  <div class="popup-bg" id="popupBg">
+    <div class="popup-box" id="popupBox">
+      <!-- app.js will insert player info here -->
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,768 @@
+
+/* =========================
+   GLOBAL
+========================= */
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+}
+
+
+/* =========================
+   CONNECTION STATUS
+========================= */
+
+#connectionStatus {
+  margin: 10px;
+  padding: 10px 15px;
+
+  background-color: #557f78;
+  color: white;
+
+  border-radius: 8px;
+  font-weight: bold;
+}
+
+
+/* =========================
+   MAIN THREE-COLUMN LAYOUT
+========================= */
+
+.Contained {
+  width: 100%;
+  min-height: calc(100vh - 20px);
+
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+
+  gap: 10px;
+  padding: 10px;
+}
+
+.player-list,
+.middle,
+.right {
+  width: 100%;
+  min-width: 0;
+}
+
+
+/* =========================
+   LEFT PANEL
+========================= */
+
+.player-list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+
+/* =========================
+   MIDDLE PANEL
+========================= */
+
+.middle {
+  min-height: calc(100vh - 20px);
+
+  background-color: lightblue;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.huh {
+  display: block;
+
+  max-width: 100%;
+  max-height: 100%;
+
+  width: auto;
+  height: auto;
+
+  margin: 0 auto;
+}
+
+
+/* =========================
+   RIGHT PANEL
+========================= */
+
+.right {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+
+/* =========================
+   PLAYER CARDS
+========================= */
+
+.player-card-small,
+.Rplayer-card-small {
+  position: relative;
+
+  width: min(90%, 300px);
+  min-height: 105px;
+
+  background-color: #67988f;
+  border-radius: 15px;
+
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  padding: 15px;
+}
+
+/* Light section on left-side cards */
+.player-card-small::before {
+  content: "";
+
+  position: absolute;
+  top: 0;
+  left: 0;
+
+  width: 70%;
+  height: 100%;
+
+  background-color: #8ab89b;
+  border-radius: 15px;
+
+  z-index: 0;
+}
+
+/* Light section on right-side DM card */
+.Rplayer-card-small::before {
+  content: "";
+
+  position: absolute;
+  top: 0;
+  right: 0;
+
+  width: 70%;
+  height: 100%;
+
+  background-color: #8ab89b;
+  border-radius: 15px;
+
+  z-index: 0;
+}
+
+/* Keep card content above the fake background */
+.avatar,
+.player-info-small,
+.dice {
+  position: relative;
+  z-index: 1;
+}
+
+
+/* =========================
+   AVATAR
+========================= */
+
+.avatar {
+  width: 55px;
+  height: 55px;
+
+  flex-shrink: 0;
+
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+
+/* =========================
+   PLAYER INFO + WHISPER AREA
+========================= */
+
+.player-main-left {
+  position: relative;
+  z-index: 2;
+
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.player-main-right {
+  position: relative;
+  z-index: 2;
+
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0px;
+  flex: 1;
+  min-width: 0;
+}
+
+.avatar-action-block {
+  position: relative;
+  z-index: 2;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+
+  flex-shrink: 0;
+}
+
+.player-info-small {
+  position: relative;
+  z-index: 2;
+
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+
+  flex: 1;
+  min-width: 0;
+}
+
+.right-info {
+  align-items: flex-end;
+  text-align: right;
+  padding-left: 10px;
+  padding-right: 5px;
+}
+
+.right-info .card-hp {
+  width: 100%;
+  max-width: 190px;
+}
+
+.Username-btn {
+  display: block;
+
+  max-width: 120px;
+  height: 24px;
+
+  margin: 0;
+  padding: 0;
+
+  border: none;
+  background: transparent;
+
+  font-size: 16px;
+  font-weight: bold;
+  text-align: left;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  cursor: pointer;
+}
+
+.right-info .Username-btn {
+  text-align: right;
+}
+
+.whisper-btn {
+  display: block;
+
+  width: 85px;
+  height: 22px;
+
+  margin: 0;
+  padding: 0;
+
+  border: none;
+  border-radius: 8px;
+
+  background-color: #557f78;
+  color: white;
+
+  font-size: 12px;
+  font-weight: bold;
+  text-align: center;
+
+  cursor: pointer;
+}
+
+
+/* =========================
+   DICE BUTTON
+========================= */
+
+.dice {
+  position: relative;
+
+  width: 60px;
+  height: 60px;
+
+  flex-shrink: 0;
+
+  margin-left: auto;
+  padding: 0;
+
+  border: none;
+  background: transparent;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  cursor: pointer;
+}
+
+.die {
+  display: block;
+
+  width: 70px;
+  height: 70px;
+
+  object-fit: contain;
+}
+
+.roll-result {
+  position: absolute;
+
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  color: black;
+
+  font-size: 13px;
+  font-weight: bold;
+
+  pointer-events: none;
+}
+
+
+/* =========================
+   INITIATIVE NUMBERS
+========================= */
+
+/* Initiative number for normal players */
+.init {
+  position: absolute;
+  right: -35px;
+
+  width: 45px;
+  height: 45px;
+
+  background-color: #557f78;
+  color: white;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  border-radius: 6px;
+  font-weight: bold;
+
+  z-index: 3;
+}
+
+/* Initiative number for DM */
+.Rinit {
+  position: absolute;
+  left: -35px;
+
+  width: 45px;
+  height: 45px;
+
+  background-color: #557f78;
+  color: white;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  border-radius: 6px;
+  font-weight: bold;
+
+  z-index: 3;
+}
+
+
+/* =========================
+   DM CARD ADJUSTMENTS
+========================= */
+#dmPlayer {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.Rplayer-card-small .dice {
+  margin-left: 0;
+}
+
+.Rplayer-card-small .player-info-small {
+  margin-left: auto;
+}
+
+.Rplayer-card-small .avatar {
+  margin-left: 0;
+}
+
+
+/* =========================
+   DM OFFLINE MESSAGE
+========================= */
+
+.dm-offline {
+  width: min(90%, 300px);
+  height: 105px;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  border-radius: 15px;
+
+  background-color: #67988f;
+  color: white;
+
+  font-weight: bold;
+}
+
+
+/* =========================
+   INITIATIVE BUTTON
+========================= */
+
+.initiative-btn {
+  width: 210px;
+  height: 30px;
+
+  border: none;
+  border-radius: 6px;
+
+  background-color: #557f78;
+  color: white;
+
+  font-size: 16px;
+  font-weight: bold;
+
+  cursor: pointer;
+}
+
+
+/* =========================
+   CHAT BOX
+========================= */
+
+.chat-box {
+  width: min(90%, 300px);
+  height: min(70vh, 420px);
+
+  border: 10px solid #5f8f89;
+  background-color: #8ab89b;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  font-weight: bold;
+}
+
+
+/* =========================
+   POPUP
+========================= */
+
+.popup-bg {
+  position: fixed;
+  inset: 0;
+
+  width: 100vw;
+  height: 100vh;
+
+  background-color: rgba(0, 0, 0, 0.5);
+
+  display: none;
+  justify-content: center;
+  align-items: center;
+
+  z-index: 999;
+}
+
+.popup-bg.show {
+  display: flex;
+}
+
+.popup-box {
+  position: relative;
+
+  width: 350px;
+  min-height: 300px;
+
+  padding: 25px;
+
+  background-color: #8ab89b;
+  border: 10px solid #557f78;
+  border-radius: 15px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.close-popup {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+
+  width: 30px;
+  height: 30px;
+
+  border: none;
+  border-radius: 50%;
+
+  background-color: #557f78;
+  color: white;
+
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.popup-avatar {
+  width: 90px;
+  height: 90px;
+
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+
+/* =========================
+   SMALLER BROWSER WIDTHS
+========================= */
+
+@media (max-width: 950px) {
+  .Contained {
+    grid-template-columns: repeat(3, minmax(250px, 1fr));
+    overflow-x: auto;
+  }
+
+  .player-card-small,
+  .Rplayer-card-small {
+    width: 280px;
+  }
+}
+
+#dmControls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chat-box {
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: stretch;
+  padding: 10px;
+}
+
+#chatMessages {
+  width: 100%;
+  flex: 1;
+  overflow-y: auto;
+  padding: 5px;
+}
+
+#chatMessages p {
+  margin: 4px 0;
+}
+
+#chatForm {
+  width: 100%;
+  display: flex;
+  gap: 5px;
+}
+
+#chatInput {
+  flex: 1;
+  min-width: 0;
+  padding: 6px;
+  border: none;
+  border-radius: 5px;
+}
+
+#chatForm button {
+  border: none;
+  border-radius: 5px;
+  background-color: #557f78;
+  color: white;
+  font-weight: bold;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.popup-bg {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
+}
+
+.popup-bg.show {
+  display: flex;
+}
+
+.popup-box {
+  position: relative;
+  width: 320px;
+  min-height: 300px;
+  background: #f5f0e8;
+  border: 3px solid #2b1b12;
+  border-radius: 18px;
+  padding: 24px;
+  text-align: center;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.35);
+}
+
+.close-popup {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  border: none;
+  background: #2b1b12;
+  color: white;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.popup-avatar {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #2b1b12;
+  margin-bottom: 10px;
+}
+
+.popup-box h2 {
+  margin: 8px 0 16px;
+}
+
+.hp-section {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.hp-label {
+  font-weight: bold;
+  margin-bottom: 8px;
+}
+
+.hp-bar {
+  width: 100%;
+  height: 22px;
+  border: 2px solid #2b1b12;
+  border-radius: 999px;
+  overflow: hidden;
+  background: #ddd;
+}
+
+.hp-fill {
+  height: 100%;
+  background: #d43737;
+  transition: width 0.2s ease;
+}
+
+.hp-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.hp-btn {
+  padding: 5px 9px;
+  border: 2px solid #2b1b12;
+  background: #fff7e8;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.hp-btn:hover {
+  background: #ead7b7;
+}
+
+.hp-input {
+  width: 65px;
+  padding: 5px;
+  text-align: center;
+  border: 2px solid #2b1b12;
+  border-radius: 8px;
+}
+
+.hp-readonly {
+  margin-top: 10px;
+  font-size: 0.9rem;
+  opacity: 0.75;
+}
+
+
+
+/* =========================
+   CARD HP BAR
+========================= */
+
+.card-hp {
+  width: 90px;
+  min-width: 90px;
+  max-width: 90px;
+
+  padding-left: 6px;
+  padding-right: 0px;
+}
+
+.card-hp-label {
+  font-size: 0.75rem;
+  font-weight: bold;
+  line-height: 1;
+}
+
+.card-hp-bar {
+  width: 100%;
+  height: 9px;
+
+  border: 1px solid #2b1b12;
+  border-radius: 999px;
+
+  overflow: hidden;
+  background: #ddd;
+
+  margin-top: 3px;
+}
+
+.card-hp-fill {
+  height: 100%;
+  background: #d43737;
+  transition: width 0.2s ease;
+}
