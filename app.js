@@ -1,11 +1,11 @@
 const approvedDMs = [
   "Eli",
-  "The DM"
+  "DM"
 ];
 
 function isDM(name) {
   return approvedDMs.some(function (dmName) {
-    return dmName.toLowerCase() === name.toLowerCase();
+    return dmName === name;
   });
 }
 
@@ -41,6 +41,7 @@ const chatMessages = document.getElementById("chatMessages");
 const chatForm = document.getElementById("chatForm");
 const chatInput = document.getElementById("chatInput");
 
+/*WEBSOCKET*/
 const websocketHost2 = prompt("Enter the websocket host")
 const websocketPort = prompt("Enter the port, or leave blank for a wss host")
 const websocketUrl = websocketPort
@@ -57,8 +58,6 @@ const passwordInput = prompt("Enter password, or leave blank:");
 const password = passwordInput ? passwordInput.trim() : null;
 
 let connectedUsers = [];
-let lastInitiativeOrderMessage = "";
-let pendingHiddenWhisperResponses = 0;
 const playerHP = {};
 const playerMaxHP = {};
 
@@ -68,8 +67,9 @@ if (username === "") {
   throw new Error("Username is required");
 }
 
-// const websocketHost = window.location.host.replace("-8000.", "-8080.");
-// const websocketUrl = `wss://${websocketHost}`;
+/*WEBSOCKET not*/
+//const websocketHost = window.location.host.replace("-8000.", "-8080.");
+//const websocketUrl = `wss://${websocketHost}`;
 
 console.log("Connecting to:", websocketUrl);
 
@@ -87,38 +87,13 @@ socket.addEventListener("open", function () {
 });
 
 socket.addEventListener("message", function (event) {
-  const response = JSON.parse(event.data);
+  let response = JSON.parse(event.data);
 
   console.log("Server response:", response);
 
-  /*
-    Completely hide internal sync messages on BOTH sides:
-    - receiver side
-    - sender side if the server echoes the whisper back
-  */
-  if (isHiddenSyncMessage(response.message)) {
-    if (response.message.startsWith("__ROLL_SYNC__|")) {
-      handleRollSyncMessage(response.message);
-    }
-
-    if (response.message.startsWith("__CHAT_SYNC__|")) {
-      handleChatSyncMessage(response.message);
-    }
-
-    if (response.message.startsWith("__INIT_SYNC__|")) {
-      handleInitiativeSyncMessage(response.message);
-    }
-
-    if (response.message.startsWith("__HP_SYNC__|")) {
-      handleHPSyncMessage(response.message);
-    }
-
-    return;
-  }
-
   if (response.type === "response") {
     connectionStatus.textContent = `Connected as ${username} (${userType})`;
-
+    /*returns array usernames */
     if (Array.isArray(response.message)) {
       connectedUsers = response.message;
       displayPlayers();
@@ -126,18 +101,17 @@ socket.addEventListener("message", function (event) {
     }
 
     /*
-      Update dice/initiative UI from server roll messages,
-      but do not print normal dice roll messages in chat.
+      Show HP
     */
-    updateRollFromServerMessage(response.message);
-    handleInitiativeOrderMessage(response.message, true);
-
-    /*
-      Show server messages, except dice-roll sync / normal dice-roll messages.
-    */
-    if (handleHPServerMessage(response.message, true)) {
+    if (handleHPServerMessage(response.message)) {
       return;
     }
+
+    /*
+      The person who rolled also receives a direct response.
+    */
+    updateRollFromServerMessage(response.message);
+    handleInitiativeOrderMessage(response.message);
 
     if (shouldShowServerMessage(response.message)) {
       addChatMessage("Server", response.message);
@@ -146,50 +120,51 @@ socket.addEventListener("message", function (event) {
     return;
   }
 
+
+  /*whisper*/
   if (response.type === "message") {
-    /*
-      Hidden dice sync message.
-      Updates dice UI but does NOT show in chat.
-    */
-    if (handleRollSyncMessage(response.message)) {
-      return;
-    }
-
-    /*
-      Hidden chat sync message.
-      Shows as normal chat, not whisper.
-    */
-    if (handleChatSyncMessage(response.message)) {
-      return;
-    }
-
-    /*
-      Real whispers only.
-    */
     addChatMessage(`Whisper from ${response.from}`, response.message);
+  return;
+}
+
+/* THis is a A BROADCAST */
+
+if (response.type === "broadcast") {
+  console.log("Broadcast received:", response);
+
+  if (response.category === "dice" || isDiceRollMessage(response.message)) {
+    updateRollFromBroadcast(response);
     return;
   }
 
-  if (response.type === "broadcast") {
-    updateRollFromServerMessage(response.message);
-    handleInitiativeOrderMessage(response.message, true);
-
+  if (response.category === "initiative") {
     if (response.initiative_order) {
       updateInitiativeOrder(response.initiative_order);
     }
 
-    if (shouldShowServerMessage(response.message)) {
-      addChatMessage("Server", response.message);
-    }
-
+    handleInitiativeOrderMessage(response.message);
     return;
   }
+
+  if (response.category === "message") {
+    addRawChatMessage(response.message);
+    return;
+  }
+
+  if (shouldShowServerMessage(response.message)) {
+    addChatMessage("Server", response.message);
+  }
+
+  return;
+}
 
   if (response.type === "error") {
     connectionStatus.textContent = `Server error: ${response.message}`;
 
-    if (shouldShowServerMessage(response.message)) {
-      addChatMessage("Server Error", response.message);
+    if (response.from) {
+      addChatMessage(response.from, response.message);
+    } else if (shouldShowServerMessage(response.message)) {
+      addChatMessage(response.message);
     }
 
     return;
@@ -214,6 +189,10 @@ setInterval(function () {
   if (socket.readyState === WebSocket.OPEN) {
     sendToServer({
       type: "userlist"
+    });
+
+    sendToServer({
+      type: "check_hp"
     });
   }
 }, 1000);
@@ -269,7 +248,7 @@ function createLeftPlayerCard(name) {
 
   card.innerHTML = `
     <div class="player-main-left">
-      <div class="avatar-action-block">
+      <div class="avatar-block">
         <img
           class="avatar"
           src="${getAvatarForUser(name)}"
@@ -338,7 +317,7 @@ function createRightPlayerCard(name) {
           ${getHPBarHTML(name)}
         </div>
 
-        <div class="avatar-action-block">
+        <div class="avatar-block">
           <img
             class="avatar"
             src="${dmAvatarFile}"
@@ -388,37 +367,38 @@ document.addEventListener("click", function (event) {
   const usernameButton = event.target.closest(".Username-btn");
 
   if (usernameButton) {
-    const card = usernameButton.closest(".player-card-small, .Rplayer-card-small");
-    const selectedUsername = card.dataset.username;
+  const card = usernameButton.closest(".player-card-small, .Rplayer-card-small");
+  const selectedUsername = card.dataset.username;
 
-    requestHPFromServer();
-    openPlayerPopup(selectedUsername);
+  requestHPFromServer();
+  openPlayerPopup(selectedUsername);
 
+  return;
+}
+
+const closePopupButton = event.target.closest(".close-popup");
+
+if (closePopupButton) {
+  popupBg.classList.remove("show");
+  delete popupBox.dataset.username;
+  return;
+}
+
+const hpButton = event.target.closest(".hp-btn");
+
+if (hpButton) {
+  if (!isDM(username)) {
+    alert("Only the DM can edit HP.");
     return;
   }
 
-  const closePopupButton = event.target.closest(".close-popup");
+  const selectedUsername = popupBox.dataset.username;
+  const amount = Number(hpButton.dataset.hpChange);
 
-  if (closePopupButton) {
-    popupBg.classList.remove("show");
-    return;
-  }
+  changePlayerHPOnServer(selectedUsername, amount);
 
-  const hpButton = event.target.closest(".hp-btn");
-
-  if (hpButton) {
-    if (!isDM(username)) {
-      alert("Only the DM can edit HP.");
-      return;
-    }
-
-    const selectedUsername = popupBox.dataset.username;
-    const amount = Number(hpButton.dataset.hpChange);
-
-    changePlayerHPOnServer(selectedUsername, amount);
-
-    return;
-  }
+  return;
+}
 
   const whisperButton = event.target.closest(".whisper-btn");
 
@@ -494,13 +474,11 @@ chatForm.addEventListener("submit", function (event) {
   if (message === "") {
     return;
   }
-
-  /*
-    Do not use server broadcast here because it is not syncing properly.
-    Instead, show it locally and send hidden chat-sync whispers to everyone else.
-  */
-  addChatMessage(username, message);
-  syncChatToOthers(username, message);
+  sendToServer({
+    type: "broadcast",
+    from: username,
+    message: `${username}: ${message}`
+  });
 
   chatInput.value = "";
 });
@@ -508,6 +486,7 @@ chatForm.addEventListener("submit", function (event) {
 popupBg.addEventListener("click", function (event) {
   if (event.target === popupBg) {
     popupBg.classList.remove("show");
+    delete popupBox.dataset.username;
   }
 });
 
@@ -536,16 +515,6 @@ function updateRollFromServerMessage(message) {
   }
 
   const trimmed = message.trim();
-
-  /*
-    Supports:
-    "Gray rolled a 10"
-    "Gray rolled a 10 for initiative"
-    "You rolled a 10"
-    "You rolled a 10 for initiative"
-    "rolled a 10"
-    "rolled a 10 for initiative"
-  */
   let rolledUsername = username;
   let roll = null;
   let isInitiativeRoll = false;
@@ -588,14 +557,6 @@ function updateRollFromServerMessage(message) {
     return;
   }
 
-  /*
-    Important fix:
-    If the server says "You rolled a 10",
-    save it under the actual username, not "You".
-  */
-  if (rolledUsername.toLowerCase() === "you") {
-    rolledUsername = username;
-  }
 
   diceResults[rolledUsername] = roll;
 
@@ -604,15 +565,7 @@ function updateRollFromServerMessage(message) {
     updateInitiativeRanks();
     forceRefreshAllPlayerDisplays();
   }
-
   updateCardRollDisplay(rolledUsername);
-
-  /*
-    If this client is the roller, sync the readable roll message to everyone else.
-  */
-  if (rolledUsername === username) {
-    syncRollToOthers(rolledUsername, roll, isInitiativeRoll);
-  }
 }
 
 function updateInitiativeOrder(order) {
@@ -665,54 +618,8 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
-function syncRollToOthers(rolledUsername, roll, isInitiativeRoll) {
-  connectedUsers.forEach(function (targetName) {
-    if (targetName === username) {
-      return;
-    }
-
-    const rollMessage = isInitiativeRoll
-      ? `${rolledUsername} rolled a ${roll} for initiative`
-      : `${rolledUsername} rolled a ${roll}`;
 
 
-    pendingHiddenWhisperResponses++;
-
-    sendToServer({
-      type: "whisper",
-      to: targetName,
-      from: username,
-      message: `__CHAT_SYNC__|${rolledUsername}|${encodeURIComponent(rollMessage)}`
-    });
-  });
-}
-
-function handleRollSyncMessage(message) {
-  if (typeof message !== "string") {
-    return false;
-  }
-
-  if (!message.startsWith("__ROLL_SYNC__|")) {
-    return false;
-  }
-
-  const parts = message.split("|");
-
-  const rolledUsername = parts[1];
-  const roll = parts[2];
-  const rollType = parts[3];
-
-  diceResults[rolledUsername] = roll;
-
-  if (rollType === "initiative") {
-    initiativeRolls[rolledUsername] = Number(roll);
-    updateInitiativeRanks();
-  }
-
-  updateCardRollDisplay(rolledUsername);
-
-  return true;
-}
 
 function updateInitiativeRanks() {
   const sorted = Object.entries(initiativeRolls).sort(function (a, b) {
@@ -764,51 +671,6 @@ function updateCardRollDisplay(name) {
   }
 }
 
-function syncChatToOthers(senderName, message) {
-  connectedUsers.forEach(function (targetName) {
-    if (targetName === username) {
-      return;
-    }
-
-    pendingHiddenWhisperResponses++;
-
-    sendToServer({
-      type: "whisper",
-      to: targetName,
-      from: username,
-      message: `__CHAT_SYNC__|${senderName}|${encodeURIComponent(message)}`
-    });
-  });
-}
-
-function handleChatSyncMessage(message) {
-  if (typeof message !== "string") {
-    return false;
-  }
-
-  if (!message.startsWith("__CHAT_SYNC__|")) {
-    return false;
-  }
-
-  const parts = message.split("|");
-
-  const senderName = parts[1];
-  const chatMessage = decodeURIComponent(parts[2] || "");
-
-  /*
-    If the synced chat message is a dice roll,
-    update the dice UI too.
-  */
-  if (isDiceRollMessage(chatMessage)) {
-    updateRollFromServerMessage(chatMessage);
-  }
-
-  addChatMessage(senderName, chatMessage);
-
-  return true;
-}
-
-
 function shouldShowServerMessage(message) {
   if (typeof message !== "string") {
     return false;
@@ -817,53 +679,15 @@ function shouldShowServerMessage(message) {
   const trimmed = message.trim();
   const lowerMessage = trimmed.toLowerCase();
 
-  /*
-    Hide hidden sync messages.
-  */
-  if (trimmed.startsWith("__ROLL_SYNC__|")) {
+  if (lowerMessage === "broadcast sent") {
     return false;
   }
-
-  if (trimmed.startsWith("__CHAT_SYNC__|")) {
+  if (isDiceRollMessage(trimmed)) {
     return false;
   }
+  
 
-  if (trimmed.startsWith("__HP_SYNC__|")) {
-    return false;
-  }
-
-  /*
-    Hide server confirmation after whisper sync.
-    This removes:
-    "Whisper sent to Eli"
-  */
-  if (lowerMessage.startsWith("whisper sent to")) {
-    if (pendingHiddenWhisperResponses > 0) {
-      pendingHiddenWhisperResponses--;
-      return false;
-    }
-
-    return true;
-  }
-
-  /*
-    Show everything else, including:
-    "asdsasadds rolled a 17"
-  */
   return true;
-}
-
-function isHiddenSyncMessage(message) {
-  if (typeof message !== "string") {
-    return false;
-  }
-
-  return (
-    message.startsWith("__ROLL_SYNC__|") ||
-    message.startsWith("__CHAT_SYNC__|") ||
-    message.startsWith("__INIT_SYNC__|") ||
-    message.startsWith("__HP_SYNC__|")
-  );
 }
 
 function isDiceRollMessage(message) {
@@ -891,7 +715,7 @@ function forceRefreshAllPlayerDisplays() {
   });
 }
 
-function handleInitiativeOrderMessage(message, shouldSync) {
+function handleInitiativeOrderMessage(message) {
   if (typeof message !== "string") {
     return false;
   }
@@ -907,15 +731,6 @@ function handleInitiativeOrderMessage(message, shouldSync) {
   }
 
   updateInitiativeOrder(order);
-
-  /*
-    Avoid syncing the same initiative order again and again.
-  */
-  if (shouldSync && message !== lastInitiativeOrderMessage) {
-    lastInitiativeOrderMessage = message;
-    syncInitiativeOrderToOthers(message);
-  }
-
   return true;
 }
 
@@ -935,47 +750,6 @@ function parseInitiativeOrderMessage(message) {
   return order;
 }
 
-function syncInitiativeOrderToOthers(orderMessage) {
-  connectedUsers.forEach(function (targetName) {
-    if (targetName === username) {
-      return;
-    }
-
-    pendingHiddenWhisperResponses++;
-
-    sendToServer({
-      type: "whisper",
-      to: targetName,
-      from: username,
-      message: `__INIT_SYNC__|${encodeURIComponent(orderMessage)}`
-    });
-  });
-}
-
-function handleInitiativeSyncMessage(message) {
-  if (typeof message !== "string") {
-    return false;
-  }
-
-  if (!message.startsWith("__INIT_SYNC__|")) {
-    return false;
-  }
-
-  const encodedOrderMessage = message.split("|")[1] || "";
-  const orderMessage = decodeURIComponent(encodedOrderMessage);
-
-  if (orderMessage === lastInitiativeOrderMessage) {
-    return true;
-  }
-
-  lastInitiativeOrderMessage = orderMessage;
-
-  handleInitiativeOrderMessage(orderMessage, false);
-  addChatMessage("Server", orderMessage);
-
-  return true;
-}
-
 function changePlayerHPOnServer(targetName, amount) {
   sendToServer({
     type: "change_hp",
@@ -991,11 +765,6 @@ function handleHPServerMessage(message, shouldSync = false) {
     return false;
   }
 
-  /*
-    Matches:
-    "10 HP deducted from Joshua. Current HP: 90/100"
-    "5 HP healed from Joshua. Current HP: 95/100"
-  */
   const changeMatch = message.match(
     /HP (healed|deducted) from (.+)\. Current HP: (\d+)\/(\d+)/
   );
@@ -1013,28 +782,14 @@ function handleHPServerMessage(message, shouldSync = false) {
 
     addChatMessage("Server", message);
 
-    /*
-      DM receives the real server response,
-      then secretly syncs HP to everyone else.
-    */
-    if (shouldSync) {
-      syncHPToOthers(targetName, hp, maxHp, message);
-    }
-
     return true;
   }
 
-  /*
-    Matches check_hp:
-    All players HP:
-    Joshua: 90/100 HP
-    Eli: 100/100 HP
-  */
   if (message.startsWith("All players HP:")) {
     parseAllHPMessage(message);
+    refreshAllHPDisplays();
     return true;
   }
-
   return false;
 }
 
@@ -1059,6 +814,10 @@ function parseAllHPMessage(message) {
 
 function refreshOpenPopupIfNeeded(targetName) {
   if (!popupBox || !popupBox.dataset.username) {
+    return;
+  }
+
+  if (!popupBg.classList.contains("show")) {
     return;
   }
 
@@ -1112,8 +871,9 @@ function openPlayerPopup(selectedUsername) {
         ></div>
       </div>
 
-      ${canEditHP
-      ? `
+      ${
+        canEditHP
+          ? `
             <div class="hp-controls">
               <button class="hp-btn" data-hp-change="-10" type="button">-10</button>
               <button class="hp-btn" data-hp-change="-1" type="button">-1</button>
@@ -1122,12 +882,12 @@ function openPlayerPopup(selectedUsername) {
               <button class="hp-btn" data-hp-change="10" type="button">+10</button>
             </div>
           `
-      : `
+          : `
             <p class="hp-readonly">
               Only the DM can edit HP.
             </p>
           `
-    }
+      }
     </div>
   `;
 
@@ -1135,55 +895,6 @@ function openPlayerPopup(selectedUsername) {
   popupBg.classList.add("show");
 }
 
-function syncHPToOthers(targetName, hp, maxHp, serverMessage) {
-  connectedUsers.forEach(function (receiverName) {
-    if (receiverName === username) {
-      return;
-    }
-
-    pendingHiddenWhisperResponses++;
-
-    sendToServer({
-      type: "whisper",
-      to: receiverName,
-      from: username,
-      message: `__HP_SYNC__|${encodeURIComponent(targetName)}|${hp}|${maxHp}|${encodeURIComponent(serverMessage)}`
-    });
-  });
-}
-
-function handleHPSyncMessage(message) {
-  if (typeof message !== "string") {
-    return false;
-  }
-
-  if (!message.startsWith("__HP_SYNC__|")) {
-    return false;
-  }
-
-  const parts = message.split("|");
-
-  const targetName = decodeURIComponent(parts[1] || "");
-  const hp = Number(parts[2]);
-  const maxHp = Number(parts[3]);
-  const serverMessage = decodeURIComponent(parts[4] || "");
-
-  if (!targetName || !Number.isFinite(hp) || !Number.isFinite(maxHp)) {
-    return true;
-  }
-
-  playerHP[targetName] = hp;
-  playerMaxHP[targetName] = maxHp;
-  updateCardHPDisplay(targetName);
-
-  refreshOpenPopupIfNeeded(targetName);
-
-  if (serverMessage) {
-    addChatMessage("Server", serverMessage);
-  }
-
-  return true;
-}
 
 function getHPBarHTML(name) {
   const hp = playerHP[name] ?? 100;
@@ -1204,4 +915,48 @@ function getHPBarHTML(name) {
       </div>
     </div>
   `;
+}
+
+function updateRollFromBroadcast(response) {
+  if (!response) {
+    return;
+  }
+
+  if (typeof response.message === "string") {
+    updateRollFromServerMessage(response.message);
+    return;
+  }
+
+  if (typeof response.dice !== "undefined") {
+    diceResults[username] = String(response.dice);
+    updateCardRollDisplay(username);
+  }
+}
+
+function refreshAllHPDisplays() {
+  Object.keys(playerHP).forEach(
+    function (name) {
+      updateCardHPDisplay(name);
+    }
+  );
+
+  if (
+    popupBox &&
+    popupBox.dataset.username
+  ) {
+    refreshOpenPopupIfNeeded(
+      popupBox.dataset.username
+    );
+  }
+}
+
+function addRawChatMessage(message) {
+  if (!chatMessages) {
+    return;
+  }
+
+  const p = document.createElement("p");
+  p.textContent = message;
+  chatMessages.appendChild(p);
+  chatMessages.scrollTop = chatMessages.scrollHeight;
 }
